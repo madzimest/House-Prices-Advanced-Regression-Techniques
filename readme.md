@@ -60,7 +60,7 @@ The dataset is automatically downloaded when you run the provided scripts (see [
 ## Project Structure
 
 The project is organized according to standard data science project conventions:
-
+```
 ├── House-Prices-Advanced-Regression-Techniques
 │   ├── all_files.txt
 │   ├── app
@@ -123,7 +123,7 @@ The project is organized according to standard data science project conventions:
 │       │   └── utils.cpython-310.pyc
 │       ├── train.py
 │       └── utils.py
-
+```
 
 ## Installation
 
