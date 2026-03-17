@@ -1,0 +1,781 @@
+Filename: create_ds_structure.py
+Path: ./create_ds_structure.py
+Contents:
+#!/usr/bin/env python3
+"""
+Script to create the DS project structure with folders and placeholder files.
+Run this script from the directory where you want the 'DS' folder to appear.
+"""
+
+import json
+from pathlib import Path
+
+# Base directory
+BASE_DIR = Path.cwd() / "DS"
+
+# Directory structure
+DIRS = [
+    "app",
+    "data/raw",
+    "data/processed",
+    "models/oof",
+    "models/trained",
+    "notebooks",
+    "src",
+    "experiments",
+]
+
+# Python source files with brief descriptions (used as file content)
+SRC_FILES = {
+    "config.py": "# Configuration settings, paths, and hyperparameters.\n",
+    "data.py": "# Data loading, preprocessing, and dataset classes.\n",
+    "features.py": "# Feature engineering and transformation functions.\n",
+    "models.py": "# Model definitions (architectures, wrappers).\n",
+    "train.py": "# Training loops and model fitting logic.\n",
+    "cv.py": "# Cross-validation strategies and utilities.\n",
+    "ensemble.py": "# Ensemble methods (stacking, blending, etc.).\n",
+    "utils.py": "# Miscellaneous helper functions.\n",
+    "inference.py": "# Inference and prediction pipelines.\n",
+}
+
+# Notebook files (empty but valid notebooks with one code cell)
+NOTEBOOKS = [
+    "01_reproduce_paper.ipynb",
+    "02_eda_advanced.ipynb",
+    "03_feature_engineering.ipynb",
+    "04_modeling_baseline.ipynb",
+    "05_model_stacking.ipynb",
+]
+
+def create_minimal_notebook(path):
+    """Create a minimal valid Jupyter notebook at the given path."""
+    notebook_content = {
+        "cells": [
+            {
+                "cell_type": "code",
+                "execution_count": None,
+                "metadata": {},
+                "outputs": [],
+                "source": []
+            }
+        ],
+        "metadata": {
+            "kernelspec": {
+                "display_name": "Python 3",
+                "language": "python",
+                "name": "python3"
+            },
+            "language_info": {
+                "name": "python",
+                "version": "3.8.0"
+            }
+        },
+        "nbformat": 4,
+        "nbformat_minor": 4
+    }
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(notebook_content, f, indent=1)
+
+def create_structure():
+    """Create all directories and placeholder files."""
+    print(f"Creating project structure in: {BASE_DIR}")
+
+    # Create directories
+    for subdir in DIRS:
+        dir_path = BASE_DIR / subdir
+        dir_path.mkdir(parents=True, exist_ok=True)
+        print(f"Created directory: {dir_path}")
+
+    # Create Python source files
+    for filename, content in SRC_FILES.items():
+        file_path = BASE_DIR / "src" / filename
+        if not file_path.exists():
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            print(f"Created file: {file_path}")
+        else:
+            print(f"File already exists, skipping: {file_path}")
+
+    # Create Jupyter notebooks
+    for nb in NOTEBOOKS:
+        nb_path = BASE_DIR / "notebooks" / nb
+        if not nb_path.exists():
+            create_minimal_notebook(nb_path)
+            print(f"Created notebook: {nb_path}")
+        else:
+            print(f"Notebook already exists, skipping: {nb_path}")
+
+    # Create requirements.txt (empty, with a comment)
+    req_path = BASE_DIR / "requirements.txt"
+    if not req_path.exists():
+        with open(req_path, "w", encoding="utf-8") as f:
+            f.write("# Add project dependencies here\n")
+        print(f"Created file: {req_path}")
+    else:
+        print(f"File already exists, skipping: {req_path}")
+
+    print("\nProject structure created successfully.")
+
+if __name__ == "__main__":
+    create_structure()
+
+
+---
+
+Filename: loop_getFile_contents.py
+Path: ./loop_getFile_contents.py
+Contents:
+import os
+
+# Root directory you want to scan
+root_dir = "."  # Change this to your directory
+output_file = "all_files.txt"
+
+# File extensions to look for
+extensions = (".py", ".css")
+
+with open(output_file, "w", encoding="utf-8") as out_f:
+    for dirpath, dirnames, filenames in os.walk(root_dir):
+        for file in filenames:
+            if file.endswith(extensions):
+                full_path = os.path.join(dirpath, file)
+                print(full_path)
+                out_f.write(f"Filename: {file}\n")
+                out_f.write(f"Path: {full_path}\n")
+                out_f.write("Contents:\n")
+                try:
+                    with open(full_path, "r", encoding="utf-8") as f:
+                        out_f.write(f.read())
+                except Exception as e:
+                    out_f.write(f"[Error reading file: {e}]")
+                out_f.write("\n\n---\n\n")
+
+print(f"All {extensions} files have been combined into {output_file}")
+
+
+---
+
+Filename: data.py
+Path: ./src/data.py
+Contents:
+# src/data.py
+import pandas as pd
+from .config import TRAIN_FILE, TEST_FILE
+
+def load_train():
+    """Load training data."""
+    return pd.read_csv(TRAIN_FILE)
+
+def load_test():
+    """Load test data."""
+    return pd.read_csv(TEST_FILE)
+
+def load_raw_data():
+    """Return train and test as a tuple."""
+    return load_train(), load_test()
+
+---
+
+Filename: cv.py
+Path: ./src/cv.py
+Contents:
+# Cross-validation strategies and utilities.
+# src/cv.py
+from sklearn.model_selection import KFold, StratifiedKFold
+from .config import RANDOM_STATE, N_SPLITS
+
+def get_folds(y=None, n_splits=N_SPLITS, random_state=RANDOM_STATE, shuffle=True):
+    """
+    Returns a KFold instance. If y is provided and is categorical,
+    could switch to StratifiedKFold (but for regression we stay with simple KFold).
+    """
+    return KFold(n_splits=n_splits, shuffle=shuffle, random_state=random_state)
+
+---
+
+Filename: models.py
+Path: ./src/models.py
+Contents:
+# src/models.py
+from sklearn.linear_model import Ridge
+from sklearn.ensemble import RandomForestRegressor
+import lightgbm as lgb
+from .config import LGB_PARAMS, RIDGE_ALPHA, RANDOM_STATE
+
+def get_ridge(alpha=RIDGE_ALPHA, random_state=RANDOM_STATE):
+    return Ridge(alpha=alpha, random_state=random_state)
+
+def get_rf(n_estimators=500, random_state=RANDOM_STATE):
+    return RandomForestRegressor(n_estimators=n_estimators, random_state=random_state, n_jobs=-1)
+
+def get_lgb(params=None):
+    if params is None:
+        params = LGB_PARAMS.copy()
+    return lgb.LGBMRegressor(**params)
+
+---
+
+Filename: features.py
+Path: ./src/features.py
+Contents:
+# src/features.py
+import logging
+import numpy as np
+import pandas as pd
+from scipy.stats import skew
+from typing import Optional, List
+from .config import SKEW_THRESHOLD
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def log_transform_target(y: pd.Series) -> pd.Series:
+    return np.log1p(y)
+
+def inverse_log_transform(y: pd.Series) -> pd.Series:
+    return np.expm1(y)
+
+class FeatureTransformer:
+    """
+    Handles all preprocessing: missing values, feature engineering,
+    skew correction, and categorical conversion.
+    Fit on training data, then transform train/test.
+    """
+    def __init__(self, convert_cats: bool = True):
+        self.convert_cats = convert_cats
+        self._cat_cols: Optional[List[str]] = None
+        self._num_cols: Optional[List[str]] = None
+        self._skewed_feats: Optional[List[str]] = None
+        self._lot_frontage_medians: Optional[pd.Series] = None
+
+    def fit(self, df: pd.DataFrame) -> "FeatureTransformer":
+        """Learn necessary parameters from training data."""
+        df = df.copy()
+
+        # Store column types for later
+        self._cat_cols = df.select_dtypes(include="object").columns.tolist()
+        self._num_cols = df.select_dtypes(include=np.number).columns.tolist()
+
+        # For LotFrontage, compute median per neighborhood (global fallback)
+        if "LotFrontage" in df.columns and "Neighborhood" in df.columns:
+            self._lot_frontage_medians = df.groupby("Neighborhood")["LotFrontage"].median()
+        else:
+            self._lot_frontage_medians = None
+
+        # Identify skewed numeric features (only positive, to avoid log of negative)
+        pos_num_cols = [c for c in self._num_cols if (df[c] > 0).all()]
+        if pos_num_cols:
+            skewed = df[pos_num_cols].apply(lambda x: skew(x.dropna()))
+            self._skewed_feats = skewed[abs(skewed) > SKEW_THRESHOLD].index.tolist()
+        else:
+            self._skewed_feats = []
+
+        logger.info(f"Skewed features to transform: {self._skewed_feats}")
+        return self
+
+    def transform(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Apply transformations to any dataframe."""
+        df = df.copy()
+        df = self._handle_missing(df)
+        df = self._add_features(df)
+        df = self._correct_skew(df)
+        if self.convert_cats:
+            df = self._convert_categoricals(df)
+        return df
+
+    def _handle_missing(self, df: pd.DataFrame) -> pd.DataFrame:
+        # Columns that should be filled with "None"
+        none_cols = [
+            "PoolQC", "MiscFeature", "Alley", "Fence", "FireplaceQu",
+            "GarageType", "GarageFinish", "GarageQual", "GarageCond",
+            "BsmtQual", "BsmtCond", "BsmtExposure", "BsmtFinType1", "BsmtFinType2"
+        ]
+        for col in none_cols:
+            if col in df.columns:
+                df[col] = df[col].fillna("None")
+
+        # LotFrontage: use neighborhood medians from fit
+        if "LotFrontage" in df.columns and self._lot_frontage_medians is not None:
+            df["LotFrontage"] = df.apply(
+                lambda row: self._lot_frontage_medians.get(row["Neighborhood"], np.nan)
+                if pd.isna(row["LotFrontage"]) else row["LotFrontage"],
+                axis=1
+            )
+            # If still NaN (e.g., new neighborhood in test), fill with global median
+            df["LotFrontage"] = df["LotFrontage"].fillna(df["LotFrontage"].median())
+
+        # Fill remaining numeric missing with median
+        for col in df.select_dtypes(include=np.number).columns:
+            df[col] = df[col].fillna(df[col].median())
+        return df
+
+    def _add_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        # Safely add features only if required columns exist
+        if all(c in df.columns for c in ["TotalBsmtSF", "1stFlrSF", "2ndFlrSF"]):
+            df["TotalSF"] = df["TotalBsmtSF"] + df["1stFlrSF"] + df["2ndFlrSF"]
+        if all(c in df.columns for c in ["FullBath", "HalfBath", "BsmtFullBath", "BsmtHalfBath"]):
+            df["TotalBathrooms"] = (df["FullBath"] + 0.5*df["HalfBath"] +
+                                     df["BsmtFullBath"] + 0.5*df["BsmtHalfBath"])
+        if all(c in df.columns for c in ["YrSold", "YearBuilt"]):
+            df["HouseAge"] = df["YrSold"] - df["YearBuilt"]
+        if all(c in df.columns for c in ["YrSold", "YearRemodAdd"]):
+            df["RemodelAge"] = df["YrSold"] - df["YearRemodAdd"]
+        if all(c in df.columns for c in ["OverallQual", "TotalSF"]):
+            df["OverallQual_TotalSF"] = df["OverallQual"] * df["TotalSF"]
+        return df
+
+    def _correct_skew(self, df: pd.DataFrame) -> pd.DataFrame:
+        if self._skewed_feats:
+            for col in self._skewed_feats:
+                # log1p works only for non-negative values; ensure we don't break
+                if col in df.columns and (df[col] >= 0).all():
+                    df[col] = np.log1p(df[col])
+                else:
+                    logger.warning(f"Column {col} not suitable for log transform, skipping.")
+        return df
+
+    def _convert_categoricals(self, df: pd.DataFrame) -> pd.DataFrame:
+        for col in df.select_dtypes(include="object").columns:
+            df[col] = df[col].astype("category")
+        return df
+
+---
+
+Filename: config.py
+Path: ./src/config.py
+Contents:
+# src/config.py
+from pathlib import Path
+
+# Project root (assuming src/ is inside DS/)
+PROJECT_ROOT = Path(__file__).parent.parent
+
+# Data paths
+DATA_RAW = PROJECT_ROOT / "data" / "raw"
+DATA_PROCESSED = PROJECT_ROOT / "data" / "processed"
+MODEL_DIR = PROJECT_ROOT / "models" / "trained"
+OOF_DIR = PROJECT_ROOT / "models" / "oof"
+
+# Files
+TRAIN_FILE = DATA_RAW / "train.csv"
+TEST_FILE = DATA_RAW / "test.csv"
+SUBMISSION_FILE = PROJECT_ROOT / "notebooks" / "submission.csv"
+
+# Modeling settings
+RANDOM_STATE = 42
+N_SPLITS = 10
+TARGET = "SalePrice"
+LOG_TARGET = True           # use log(1+SalePrice)
+
+# Feature engineering
+SKEW_THRESHOLD = 0.75
+
+# LightGBM defaults
+LGB_PARAMS = {
+    "n_estimators": 5000,
+    "learning_rate": 0.01,
+    "random_state": RANDOM_STATE,
+    "n_jobs": -1,
+}
+
+# Ridge defaults
+RIDGE_ALPHA = 10.0
+
+# Ensemble blending weights (LGB, Ridge)
+BLEND_WEIGHTS = [0.6, 0.4]
+
+---
+
+Filename: ensemble.py
+Path: ./src/ensemble.py
+Contents:
+# src/ensemble.py
+import numpy as np
+import pandas as pd
+from sklearn.model_selection import KFold
+from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.linear_model import Ridge
+import lightgbm as lgb
+from .features import FeatureTransformer
+from .config import N_SPLITS, RANDOM_STATE, RIDGE_ALPHA, LGB_PARAMS, BLEND_WEIGHTS
+import logging
+
+logger = logging.getLogger(__name__)
+
+def oof_blend(X, y, n_splits=N_SPLITS, lgb_params=None, ridge_alpha=RIDGE_ALPHA,
+              blend_weights=BLEND_WEIGHTS, random_state=RANDOM_STATE):
+    """
+    Perform OOF blending of LightGBM and Ridge.
+    Returns oof predictions and a list of fold models for inference.
+    """
+    if lgb_params is None:
+        lgb_params = LGB_PARAMS.copy()
+        lgb_params['random_state'] = random_state
+
+    ft = FeatureTransformer()
+    oof_preds = np.zeros(len(X))
+    models = []
+
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+
+    for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
+        logger.info(f"Fold {fold+1}/{n_splits}")
+        X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+
+        # Fit transformer on training only
+        ft.fit(X_train)
+        X_train_t = ft.transform(X_train)
+        X_val_t = ft.transform(X_val)
+
+        # ---- LightGBM ----
+        lgb_model = lgb.LGBMRegressor(**lgb_params)
+        lgb_model.fit(
+            X_train_t, y_train,
+            eval_set=[(X_val_t, y_val)],
+            eval_metric="rmse",
+            callbacks=[lgb.early_stopping(200, verbose=False)]
+        )
+
+        # ---- Ridge (with one-hot encoding) ----
+        cat_cols = X_train_t.select_dtypes("category").columns.tolist()
+        num_cols = X_train_t.select_dtypes(np.number).columns.tolist()
+
+        ohe = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+        X_train_cat = ohe.fit_transform(X_train_t[cat_cols])
+        X_val_cat = ohe.transform(X_val_t[cat_cols])
+
+        X_train_ridge = np.hstack([X_train_t[num_cols].values, X_train_cat])
+        X_val_ridge = np.hstack([X_val_t[num_cols].values, X_val_cat])
+
+        ridge_model = Ridge(alpha=ridge_alpha, random_state=random_state)
+        ridge_model.fit(X_train_ridge, y_train)
+        ridge_preds_val = ridge_model.predict(X_val_ridge)
+
+        # Blend
+        lgb_preds_val = lgb_model.predict(X_val_t)
+        blended_val = (blend_weights[0] * lgb_preds_val +
+                       blend_weights[1] * ridge_preds_val)
+        oof_preds[val_idx] = blended_val
+
+        # Store all needed artifacts for inference
+        models.append({
+            "lgb": lgb_model,
+            "ridge": ridge_model,
+            "ohe": ohe,
+            "cat_cols": cat_cols,
+            "num_cols": num_cols,
+            "ft": ft   # each fold has its own transformer!
+        })
+
+        fold_rmse = np.sqrt(mean_squared_error(y_val, blended_val))
+        logger.info(f"Fold RMSE: {fold_rmse:.5f}")
+
+    overall_rmse = np.sqrt(mean_squared_error(y, oof_preds))
+    logger.info(f"Overall OOF RMSE: {overall_rmse:.5f}")
+    return oof_preds, models
+
+#  bottom
+
+def oof_lgb(X, y, n_splits=N_SPLITS, lgb_params=None, random_state=RANDOM_STATE):
+    """
+    Out-of-fold predictions using LightGBM only, with proper per‑fold preprocessing.
+    
+    Parameters
+    ----------
+    X : DataFrame
+        Raw features (without preprocessing). The function will apply FeatureTransformer
+        inside each fold.
+    y : Series
+        Target. Should be on the original scale (will not be transformed).
+    n_splits : int
+        Number of folds.
+    lgb_params : dict, optional
+        Parameters for LightGBM. If None, uses config.LGB_PARAMS.
+    random_state : int
+
+    Returns
+    -------
+    oof_preds : ndarray
+        Out-of-fold predictions (on the original scale of y).
+    models : list of dict
+        Each dict contains {'model': trained LGBM, 'ft': fitted FeatureTransformer}
+    """
+    if lgb_params is None:
+        lgb_params = LGB_PARAMS.copy()
+        lgb_params['random_state'] = random_state
+
+    ft = FeatureTransformer()
+    oof_preds = np.zeros(len(X))
+    models = []
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+
+    for fold, (train_idx, val_idx) in enumerate(kf.split(X)):
+        X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_train, y_val = y.iloc[train_idx], y.iloc[val_idx]
+
+        # Fit transformer on training only
+        ft.fit(X_train)
+        X_train_t = ft.transform(X_train)
+        X_val_t = ft.transform(X_val)
+
+        model = lgb.LGBMRegressor(**lgb_params)
+        model.fit(
+            X_train_t, y_train,
+            eval_set=[(X_val_t, y_val)],
+            eval_metric='rmse',
+            callbacks=[lgb.early_stopping(200, verbose=False)]
+        )
+        preds = model.predict(X_val_t)
+        oof_preds[val_idx] = preds
+
+        models.append({'model': model, 'ft': ft})   # store a fresh transformer per fold
+
+        rmse_fold = np.sqrt(mean_squared_error(y_val, preds))
+        logger.info(f"Fold {fold+1} RMSE: {rmse_fold:.5f}")
+
+    overall_rmse = np.sqrt(mean_squared_error(y, oof_preds))
+    logger.info(f"Overall OOF RMSE: {overall_rmse:.5f}")
+    return oof_preds, models
+
+---
+
+Filename: __init__.py
+Path: ./src/__init__.py
+Contents:
+
+
+---
+
+Filename: utils.py
+Path: ./src/utils.py
+Contents:
+# Miscellaneous helper functions.
+# src/utils.py
+import joblib
+import numpy as np
+from sklearn.metrics import mean_squared_error
+from pathlib import Path
+
+def rmse(y_true, y_pred):
+    return np.sqrt(mean_squared_error(y_true, y_pred))
+
+def save_model(model, path: Path):
+    joblib.dump(model, path)
+
+def load_model(path: Path):
+    return joblib.load(path)
+
+import joblib
+from pathlib import Path
+
+def save_models(models, folder: Path):
+    """Save a list of model dictionaries (as produced by oof_lgb or oof_blend) to folder."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for i, model_dict in enumerate(models):
+        # We need to ensure all components are serializable. joblib works for most sklearn/lgbm objects.
+        joblib.dump(model_dict, folder / f"fold_{i}.pkl")
+
+def load_models(folder: Path):
+    """Load saved models from folder."""
+    models = []
+    for path in sorted(folder.glob("fold_*.pkl")):
+        models.append(joblib.load(path))
+    return models
+
+---
+
+Filename: train.py
+Path: ./src/train.py
+Contents:
+# src/train.py
+import numpy as np
+import pandas as pd
+from sklearn.metrics import mean_squared_error
+from .cv import get_folds
+from .features import log_transform_target, inverse_log_transform
+from .config import LOG_TARGET, TARGET, N_SPLITS, RANDOM_STATE
+import logging
+
+logger = logging.getLogger(__name__)
+
+def train_model_oof(model, X, y, fit_params=None, log_target=False):
+    """
+    Perform cross-validation and return out-of-fold predictions.
+    
+    Parameters
+    ----------
+    model : callable or estimator instance
+        If callable, it should return a fresh estimator. If estimator, it will be cloned per fold.
+    X : DataFrame
+        Features (already preprocessed).
+    y : Series
+        Target. If log_target=True, y is assumed to be raw target and will be log-transformed.
+        If log_target=False, y is used as is (should be already transformed if desired).
+    fit_params : dict, optional
+        Additional parameters passed to the model's fit method (e.g., eval_set for early stopping).
+    log_target : bool, default=False
+        Whether to apply log1p transformation to the target.
+
+    Returns
+    -------
+    oof_preds : ndarray
+        Out-of-fold predictions (on the same scale as the input y, i.e., if log_target=True,
+        predictions are on log scale; you need to inverse transform separately).
+    scores : list
+        RMSE scores for each fold (calculated on the scale of y after possible log transform).
+    """
+    if log_target:
+        y_trans = log_transform_target(y)
+    else:
+        y_trans = y
+
+    folds = get_folds(n_splits=N_SPLITS, random_state=RANDOM_STATE)
+    oof_preds = np.zeros(len(X))
+    scores = []
+
+    for fold, (train_idx, val_idx) in enumerate(folds.split(X)):
+        X_train, X_val = X.iloc[train_idx], X.iloc[val_idx]
+        y_train, y_val = y_trans.iloc[train_idx], y_trans.iloc[val_idx]
+
+        # Create a fresh model for this fold
+        if callable(model):
+            m = model()
+        else:
+            # Assume it's an unfitted estimator; clone to be safe
+            from sklearn.base import clone
+            m = clone(model)
+
+        # Prepare fit arguments
+        fit_kwargs = fit_params.copy() if fit_params else {}
+        # If eval_set is in fit_params, we need to pass the validation data correctly
+        if 'eval_set' in fit_kwargs:
+            # The user provided eval_set as a list of (X, y) tuples? Usually it's a list of (X_val, y_val)
+            # For simplicity, we override eval_set with the current validation fold.
+            fit_kwargs['eval_set'] = [(X_val, y_val)]
+
+        m.fit(X_train, y_train, **fit_kwargs)
+        preds = m.predict(X_val)
+        oof_preds[val_idx] = preds
+
+        rmse = np.sqrt(mean_squared_error(y_val, preds))
+        scores.append(rmse)
+        logger.info(f"Fold {fold+1} RMSE: {rmse:.5f}")
+
+    logger.info(f"Mean RMSE: {np.mean(scores):.5f} ± {np.std(scores):.5f}")
+    return oof_preds, scores
+
+---
+
+Filename: inference.py
+Path: ./src/inference.py
+Contents:
+# src/inference.py
+import numpy as np
+from .features import inverse_log_transform
+from .config import BLEND_WEIGHTS
+import logging
+
+logger = logging.getLogger(__name__)
+
+def predict_test(models, test_df):
+    """
+    models: list of dicts as produced by oof_blend (each contains 'lgb', 'ridge', 'ohe',
+            'cat_cols', 'num_cols', 'ft')
+    """
+    final_preds = np.zeros(len(test_df))
+
+    for i, model_dict in enumerate(models):
+        ft = model_dict["ft"]
+        X_test_t = ft.transform(test_df.copy())
+
+        # LGB predictions
+        lgb_preds = model_dict["lgb"].predict(X_test_t)
+
+        # Ridge predictions
+        cat_cols = model_dict["cat_cols"]
+        num_cols = model_dict["num_cols"]
+        ohe = model_dict["ohe"]
+
+        test_cat = ohe.transform(X_test_t[cat_cols])
+        test_ridge = np.hstack([X_test_t[num_cols].values, test_cat])
+        ridge_preds = model_dict["ridge"].predict(test_ridge)
+
+        # Blend using weights from config
+        blended = BLEND_WEIGHTS[0] * lgb_preds + BLEND_WEIGHTS[1] * ridge_preds
+        final_preds += blended
+
+    final_preds /= len(models)
+    return inverse_log_transform(final_preds)
+
+---
+
+Filename: app.py
+Path: ./app/app.py
+Contents:
+import sys
+from pathlib import Path
+
+# Add the DS folder to sys.path so that 'src' module is found
+# app.py is in DS/app/, so parent directory is DS/
+sys.path.append(str(Path(__file__).parent.parent))
+
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+import joblib
+import pandas as pd
+import numpy as np
+
+app = Flask(__name__)
+CORS(app)
+
+# Load the saved stacking pipeline
+pipeline = joblib.load('../deployment/stacking_pipeline.pkl')
+fold_models = pipeline['fold_models']
+meta_model = pipeline['meta_model']
+base_model_names = pipeline['base_model_names']
+
+@app.route('/predict', methods=['POST'])
+def predict():
+    try:
+        data = request.get_json()
+        input_df = pd.DataFrame([data])
+
+        # Generate predictions from each fold
+        fold_preds = {name: np.zeros(len(input_df)) for name in base_model_names}
+        for fold_dict in fold_models:
+            ft = fold_dict['ft']
+            ohe = fold_dict['ohe']
+            num_cols = fold_dict['num_cols']
+            cat_cols = fold_dict['cat_cols']
+
+            X_t = ft.transform(input_df)
+            X_cat = ohe.transform(X_t[cat_cols])
+            X_num = X_t[num_cols].values
+            X_proc = np.hstack([X_num, X_cat])
+
+            for name in base_model_names:
+                model = fold_dict[name]
+                fold_preds[name] += model.predict(X_proc)
+
+        # Average across folds
+        for name in base_model_names:
+            fold_preds[name] /= len(fold_models)
+
+        # Stack and apply meta-model
+        X_meta = np.column_stack([fold_preds[name] for name in base_model_names])
+        log_pred = meta_model.predict(X_meta)[0]
+        price = np.expm1(log_pred)
+
+        return jsonify({'predicted_price': round(price, 2)})
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
+
+
+---
+
